@@ -1,2 +1,4 @@
 # Obsidian metadata
 .obsidian/
+# Scripts
+scripts/pushscript.sh
