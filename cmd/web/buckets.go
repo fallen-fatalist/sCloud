@@ -14,6 +14,7 @@ import (
 var (
 	ErrIncorrectNumberOfFields = errors.New("incorrect number of fields in csv file")
 	ErrBucketAlreadyExists     = errors.New("bucket with BucketName already exists")
+	ErrBucketNotExists         = errors.New("bucket with BucketName does not exist")
 )
 
 // Global variable of buckets list
@@ -32,7 +33,7 @@ type BucketInfo struct {
 // if doesn't exist, creates new buckets.csv
 func loadBuckets() error {
 	// Opening file
-	bucketsFile, err := os.OpenFile(bucketsPath, os.O_CREATE|os.O_RDONLY, 0644)
+	bucketsFile, err := os.OpenFile(bucketsPath, os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
@@ -48,6 +49,7 @@ func loadBuckets() error {
 	// Parsing csv file
 	csvReader := csv.NewReader(bucketsFile)
 
+	// Iterate over csv records
 	for {
 		record, err := csvReader.Read()
 		if err != nil {
@@ -70,18 +72,21 @@ func loadBuckets() error {
 			status:           record[3],
 		}
 	}
-
+	log.Print("Loaded buckets metadata")
 	return nil
 
 }
 
 // GET handler
-func getBuckets(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Returning buckets"))
+func getBuckets(w http.ResponseWriter) {
+	for bucketName, bucketData := range bucketMap {
+		w.Write([]byte(bucketName + " " + bucketData.createdTime + " " + bucketData.lastModifiedTime + " " + bucketData.status + "\n"))
+	}
+	log.Print("Buckets list requested")
 }
 
 // PUT handler
-func createBucket(w http.ResponseWriter, r *http.Request, bucketName string) error {
+func createBucket(bucketName string) error {
 	// Name existence check
 	if _, exists := bucketMap[bucketName]; exists {
 		return ErrBucketAlreadyExists
@@ -97,7 +102,7 @@ func createBucket(w http.ResponseWriter, r *http.Request, bucketName string) err
 	// write to csv file
 	csvFile, err := os.OpenFile(bucketsPath, os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer csvFile.Close()
 
@@ -107,13 +112,38 @@ func createBucket(w http.ResponseWriter, r *http.Request, bucketName string) err
 	csvWriter.Flush()
 	err = csvWriter.Error()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
+	log.Print(bucketName + " bucket created")
 	return nil
 }
 
 // DELETE handler
-func deleteBucket(w http.ResponseWriter, r *http.Request, bucketName string) {
-	w.Write([]byte("Deleted the bucket"))
+func deleteBucket(bucketName string) error {
+	if _, exists := bucketMap[bucketName]; !exists {
+		return ErrBucketNotExists
+	}
+
+	// Delete the bucket from the map
+	delete(bucketMap, bucketName)
+
+	// Overwrite the map to the csv file
+	csvFile, err := os.Create(bucketsPath)
+	if err != nil {
+		return err
+	}
+
+	// Write to the new file
+	csvWriter := csv.NewWriter(csvFile)
+	for bucketName, bucketData := range bucketMap {
+		csvWriter.Write([]string{bucketName, bucketData.createdTime, bucketData.lastModifiedTime, bucketData.status})
+	}
+	csvWriter.Flush()
+	err = csvWriter.Error()
+	if err != nil {
+		return err
+	}
+	log.Print(bucketName + " bucket deleted")
+	return nil
 }

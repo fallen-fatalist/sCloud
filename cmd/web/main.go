@@ -12,7 +12,6 @@ var ()
 // Initialization loading buckets
 func init() {
 	loadBuckets()
-	log.Print("Loaded buckets metadata")
 }
 
 func main() {
