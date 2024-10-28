@@ -9,7 +9,7 @@ import (
 
 func routes() *http.ServeMux {
 	mux := http.NewServeMux()
-
+	// routerHandler handles all routes
 	mux.HandleFunc("/", routerHandler)
 
 	return mux
@@ -20,6 +20,7 @@ func routes() *http.ServeMux {
 
 // Router handler
 func routerHandler(w http.ResponseWriter, r *http.Request) {
+	// Dividing URL into segments
 	URLString := strings.Trim(r.URL.String(), "/")
 	URLSegments := strings.Split(URLString, "/")
 
@@ -48,10 +49,24 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 			deleteBucket(w, r, URLSegments[0])
 		default:
 			w.Header().Set("Allow", "PUT, DELETE")
+			http.Error(w, "Incorrect method applied to operate with buckets", http.StatusMethodNotAllowed)
+			return
 		}
 	// Objects operations
 	case len(URLSegments) == 2:
-		return
+		switch r.Method {
+		case "GET":
+			retrieveObject(w, r, URLSegments[0], URLSegments[1])
+			return
+		case "PUT":
+			createObject(w, r, URLSegments[0], URLSegments[1])
+		case "DELETE":
+			deleteObject(w, r, URLSegments[0], URLSegments[1])
+		default:
+			w.Header().Set("Allow", "GET, PUT, DELETE")
+			http.Error(w, "Incorrect method applied to operate with objects", http.StatusMethodNotAllowed)
+			return
+		}
 	}
 
 }

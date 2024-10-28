@@ -1,5 +1,5 @@
 ### TODO list
-- [ ] Routing
+- [x] Routing
 - [ ] Buckets handling
 	- [ ] Create bucket endpoint
 	- [ ] List all buckets endpoint
