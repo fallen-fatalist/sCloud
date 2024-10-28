@@ -7,11 +7,16 @@ import (
 )
 
 // Config variables
-var (
-	port = 4000
-)
+var ()
+
+// Initialization loading buckets
+func init() {
+	loadBuckets()
+	log.Print("Loaded buckets metadata")
+}
 
 func main() {
+	// RESTful API router initialization
 	mux := routes()
 
 	log.Print("starting server on:", port)
