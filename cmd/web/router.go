@@ -39,17 +39,17 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Routing
 	switch {
-	// Index
+	// / Index route
 	case r.URL.String() == "/":
 		if r.Method == http.MethodGet {
-			getBuckets(w, r)
+			getBuckets(w)
 			return
 		} else {
 			w.Header().Set("Allow", "GET")
 			w.Write([]byte("Incorrect method applied for listing buckets"))
 			return
 		}
-	// Buckets operations
+	// /<BucketName> route
 	case len(URLSegments) == 1:
 		// URL validation
 		err := validateURLSegments(URLSegments)
@@ -60,15 +60,19 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 
 		switch r.Method {
 		case "PUT":
-			err := createBucket(w, r, URLSegments[0])
+			err := createBucket(URLSegments[0])
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			w.Write([]byte("Created the bucket"))
+			w.Write([]byte("Created the bucket with name: " + URLSegments[0]))
 			return
 		case "DELETE":
-			deleteBucket(w, r, URLSegments[0])
+			err := deleteBucket(URLSegments[0])
+			if err != nil {
+				log.Fatal(err)
+			}
+			w.Write([]byte("Deleted the bucket with name: " + URLSegments[0]))
 			return
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -76,7 +80,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Incorrect method entered to operate with buckets"))
 			return
 		}
-	// Objects operations
+	// /<BucketName>/<ObjectName> route
 	case len(URLSegments) == 2:
 		// URL validation
 		err := validateURLSegments(URLSegments)
@@ -116,18 +120,28 @@ func validateURLSegments(URLSegments []string) error {
 		return nil
 	}
 
-	// regex Patterns
+	// Regex Patterns
 	CharactersPattern, err := regexp.Compile("^[a-z0-9.-]+$")
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	IPPattern, err := regexp.Compile(`^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$`)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 	StartHyphenDotPattern, err := regexp.Compile(`^[.-]`)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 	EndHyphenDotPattern, err := regexp.Compile(`[.-]$`)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 	ConsecutiveDotsHyphenPattern, err := regexp.Compile(`(\.\.|--)`)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	// bucket and object name validation
 	for _, segment := range URLSegments {
@@ -165,10 +179,4 @@ func validateURLSegments(URLSegments []string) error {
 	}
 
 	return nil
-}
-
-func checkErr(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
 }
