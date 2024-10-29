@@ -11,7 +11,10 @@ var ()
 
 // Initialization loading buckets
 func init() {
-	loadBuckets()
+	err := loadBuckets()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func main() {

@@ -4,9 +4,11 @@ import (
 	"encoding/csv"
 	"errors"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -15,6 +17,7 @@ var (
 	ErrIncorrectNumberOfFields = errors.New("incorrect number of fields in csv file")
 	ErrBucketAlreadyExists     = errors.New("bucket with BucketName already exists")
 	ErrBucketNotExists         = errors.New("bucket with BucketName does not exist")
+	ErrBucketContainsDir       = errors.New("bucket contains directory")
 )
 
 // Global variable of buckets list
@@ -32,11 +35,28 @@ type BucketInfo struct {
 // Load buckets from data path if exist
 // if doesn't exist, creates new buckets.csv
 func loadBuckets() error {
-	// Opening file
-	bucketsFile, err := os.OpenFile(bucketsPath, os.O_CREATE, 0644)
+	// Create storage directory if not exists
+	err := os.Mkdir(storagePath, 0o755)
+	if err != nil && !os.IsExist(err) {
+		return err
+	} else if err == nil {
+		log.Print("created storage directory: " + storagePath)
+	}
+
+	// Opening buckets.csv metadata file
+	bucketsFile, err := os.OpenFile(bucketsPath, os.O_RDONLY, 0o644)
 	if err != nil {
+		if os.IsNotExist(err) {
+			_, err := os.OpenFile(bucketsPath, os.O_CREATE, 0o644)
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Print("created buckets.csv metadata file")
+			return nil
+		}
 		return err
 	}
+
 	defer bucketsFile.Close()
 	// Validation must be in router, so here it is skipped
 	// so here bucketName is not validated
@@ -54,6 +74,7 @@ func loadBuckets() error {
 		record, err := csvReader.Read()
 		if err != nil {
 			if err == io.EOF {
+				log.Print("loaded buckets metadata")
 				break
 			}
 			return err
@@ -72,9 +93,7 @@ func loadBuckets() error {
 			status:           record[3],
 		}
 	}
-	log.Print("Loaded buckets metadata")
 	return nil
-
 }
 
 // GET handler
@@ -92,6 +111,18 @@ func createBucket(bucketName string) error {
 		return ErrBucketAlreadyExists
 	}
 
+	// Create bucket directory
+	err := os.Mkdir(filepath.Join(storagePath, bucketName), 0o755)
+	if err != nil {
+		if os.IsExist(err) {
+			log.Print("bucket directory already exists: " + filepath.Join(storagePath, bucketName))
+		} else {
+			log.Fatal(err)
+		}
+	}
+
+	log.Print("bucket directory created: " + filepath.Join(storagePath, bucketName))
+
 	// Bucket add to map
 	bucketMap[bucketName] = BucketInfo{
 		createdTime:      time.Now().Format(time.RFC822),
@@ -100,7 +131,7 @@ func createBucket(bucketName string) error {
 	}
 
 	// write to csv file
-	csvFile, err := os.OpenFile(bucketsPath, os.O_WRONLY|os.O_APPEND, 0644)
+	csvFile, err := os.OpenFile(bucketsPath, os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return err
 	}
@@ -115,7 +146,7 @@ func createBucket(bucketName string) error {
 		return err
 	}
 
-	log.Print(bucketName + " bucket created")
+	log.Print(bucketName + " empty bucket created")
 	return nil
 }
 
@@ -123,6 +154,17 @@ func createBucket(bucketName string) error {
 func deleteBucket(bucketName string) error {
 	if _, exists := bucketMap[bucketName]; !exists {
 		return ErrBucketNotExists
+	}
+
+	// Remove the bucket's directory
+	bucketPath := filepath.Join(storagePath, bucketName)
+	err := filepath.WalkDir(bucketPath, deleteDirectory)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = nil
+		} else {
+			return err
+		}
 	}
 
 	// Delete the bucket from the map
@@ -144,6 +186,35 @@ func deleteBucket(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	log.Print(bucketName + " bucket deleted")
+	log.Print(bucketName + " bucket and its content deleted")
 	return nil
+}
+
+func deleteDirectory(path string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	} else if d.IsDir() {
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			entryPath := filepath.Join(path, entry.Name())
+			err := deleteDirectory(entryPath, entry, err)
+			if err != nil {
+				return err
+			}
+		}
+		err = os.Remove(path)
+		if err == nil {
+			log.Print("directory removed: " + path)
+		}
+		return err
+	} else {
+		err = os.Remove(path)
+		if err == nil {
+			log.Print("file removed: " + path)
+		}
+		return err
+	}
 }

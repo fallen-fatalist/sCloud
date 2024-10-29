@@ -26,7 +26,6 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("/", routerHandler)
 
 	return mux
-
 }
 
 // Validate the bucket name to ensure it meets Amazon S3 naming requirements (3-63 characters, only lowercase letters, numbers, hyphens, and periods).
@@ -59,7 +58,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch r.Method {
-		case "PUT":
+		case http.MethodPut:
 			err := createBucket(URLSegments[0])
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -67,7 +66,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			w.Write([]byte("Created the bucket with name: " + URLSegments[0]))
 			return
-		case "DELETE":
+		case http.MethodDelete:
 			err := deleteBucket(URLSegments[0])
 			if err != nil {
 				log.Fatal(err)
@@ -90,13 +89,13 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch r.Method {
-		case "GET":
+		case http.MethodGet:
 			retrieveObject(w, r, URLSegments[0], URLSegments[1])
 			return
-		case "PUT":
+		case http.MethodPut:
 			createObject(w, r, URLSegments[0], URLSegments[1])
 			return
-		case "DELETE":
+		case http.MethodDelete:
 			deleteObject(w, r, URLSegments[0], URLSegments[1])
 			return
 		default:
@@ -109,7 +108,6 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Incorrect URL format entered", http.StatusBadRequest)
 		return
 	}
-
 }
 
 // Validation of URL variables
