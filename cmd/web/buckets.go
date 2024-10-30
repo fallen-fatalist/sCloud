@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"errors"
 	"io"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +17,7 @@ var (
 	ErrBucketAlreadyExists     = errors.New("bucket with BucketName already exists")
 	ErrBucketNotExists         = errors.New("bucket with BucketName does not exist")
 	ErrBucketContainsDir       = errors.New("bucket contains directory")
+	ErrBucketIsNotEmpty        = errors.New("bucket is not empty")
 )
 
 // Global variable of buckets list
@@ -151,14 +151,19 @@ func createBucket(bucketName string) error {
 }
 
 // DELETE handler
-func deleteBucket(bucketName string) error {
+func deleteBucket(bucketName string) (err error) {
 	if _, exists := bucketMap[bucketName]; !exists {
 		return ErrBucketNotExists
 	}
 
 	// Remove the bucket's directory
 	bucketPath := filepath.Join(storagePath, bucketName)
-	err := filepath.WalkDir(bucketPath, deleteDirectory)
+	bucketDir, _ := os.ReadDir(bucketPath)
+	if len(bucketDir) == 0 {
+		err = os.Remove(bucketPath)
+	} else {
+		return ErrBucketIsNotEmpty
+	}
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
@@ -186,35 +191,6 @@ func deleteBucket(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	log.Print(bucketName + " bucket and its content deleted")
+	log.Print("<" + bucketName + "> bucket deleted")
 	return nil
-}
-
-func deleteDirectory(path string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	} else if d.IsDir() {
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return err
-		}
-		for _, entry := range entries {
-			entryPath := filepath.Join(path, entry.Name())
-			err := deleteDirectory(entryPath, entry, err)
-			if err != nil {
-				return err
-			}
-		}
-		err = os.Remove(path)
-		if err == nil {
-			log.Print("directory removed: " + path)
-		}
-		return err
-	} else {
-		err = os.Remove(path)
-		if err == nil {
-			log.Print("file removed: " + path)
-		}
-		return err
-	}
 }
