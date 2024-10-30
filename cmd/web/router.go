@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -38,22 +37,23 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Routing
 	switch {
-	// / Index route
+	// / Index route processing
 	case r.URL.String() == "/":
 		if r.Method == http.MethodGet {
 			getBuckets(w)
 			return
 		} else {
 			w.Header().Set("Allow", "GET")
-			w.Write([]byte("Incorrect method applied for listing buckets"))
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Incorrect method applied for listing buckets\n"))
 			return
 		}
-	// /<BucketName> route
+	// /<BucketName> route processing
 	case len(URLSegments) == 1:
 		// URL validation
 		err := validateURLSegments(URLSegments)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			respondError(http.StatusBadRequest, err, w)
 			return
 		}
 
@@ -61,22 +61,35 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		case http.MethodPut:
 			err := createBucket(URLSegments[0])
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				statusCode := 200
+				if err == ErrBucketAlreadyExists {
+					statusCode = http.StatusConflict
+				} else {
+					statusCode = http.StatusBadRequest
+				}
+				respondError(statusCode, err, w)
 				return
 			}
-			w.Write([]byte("Created the bucket with name: " + URLSegments[0]))
+			w.Write([]byte("Created the bucket with name: " + URLSegments[0] + "\n"))
 			return
 		case http.MethodDelete:
 			err := deleteBucket(URLSegments[0])
 			if err != nil {
-				log.Fatal(err)
+				statusCode := 200
+				if err == ErrBucketIsNotEmpty {
+					statusCode = http.StatusConflict
+				} else if err == ErrBucketNotExists {
+					statusCode = http.StatusNotFound
+				}
+				respondError(statusCode, err, w)
+				return
 			}
-			w.Write([]byte("Deleted the bucket with name: " + URLSegments[0]))
+			w.Write([]byte("Deleted the bucket with name: " + URLSegments[0] + "\n"))
 			return
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Header().Set("Allow", "PUT, DELETE")
-			w.Write([]byte("Incorrect method entered to operate with buckets"))
+			w.Write([]byte("Incorrect method entered to operate with buckets\n"))
 			return
 		}
 	// /<BucketName>/<ObjectName> route
@@ -101,7 +114,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Header().Set("Allow", "GET, PUT, DELETE")
-			w.Write([]byte("Incorrect method entered to operate with objects"))
+			w.Write([]byte("Incorrect method entered to operate with objects\n"))
 			return
 		}
 	default:
@@ -177,4 +190,8 @@ func validateURLSegments(URLSegments []string) error {
 	}
 
 	return nil
+}
+
+func respondError(statusCode int, err error, w http.ResponseWriter) {
+	http.Error(w, err.Error(), statusCode)
 }
