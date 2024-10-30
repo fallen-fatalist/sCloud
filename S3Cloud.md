@@ -5,10 +5,10 @@
 	- [x] URL routing for objects
 - [x] Buckets handling
 	- [X] Implement create the bucket  endpoint
-		- [x] Create the directory related to bucket
+		- [x] Create the empty directory related to bucket
 	- [x] Implement listing all buckets endpoint
 	- [x] Implement deleting the bucket endpoint
-		- [x] Delete the directory related to bucket
+		- [x] Delete the empty directory related to bucket
 - [ ] Objects handling
 	- [ ] Upload a new object
 	- [ ] Retrieve an object

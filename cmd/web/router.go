@@ -103,10 +103,27 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 
 		switch r.Method {
 		case http.MethodGet:
-			retrieveObject(w, r, URLSegments[0], URLSegments[1])
+			err := retrieveObject(w, URLSegments[0], URLSegments[1])
+			if err != nil {
+				statusCode := 400
+				if err == ErrObjectNotExists {
+					statusCode = http.StatusBadRequest
+				}
+				respondError(statusCode, err, w)
+				return
+
+			}
 			return
 		case http.MethodPut:
-			createObject(w, r, URLSegments[0], URLSegments[1])
+			err := uploadObject(r, URLSegments[0], URLSegments[1])
+			if err != nil {
+				statusCode := 400
+				if err == ErrObjectAlreadyExists {
+					statusCode = http.StatusConflict
+				}
+				respondError(statusCode, err, w)
+				return
+			}
 			return
 		case http.MethodDelete:
 			deleteObject(w, r, URLSegments[0], URLSegments[1])
@@ -190,8 +207,4 @@ func validateURLSegments(URLSegments []string) error {
 	}
 
 	return nil
-}
-
-func respondError(statusCode int, err error, w http.ResponseWriter) {
-	http.Error(w, err.Error(), statusCode)
 }
