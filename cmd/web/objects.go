@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -38,8 +39,40 @@ func retrieveObject(w http.ResponseWriter, bucketName, objectName string) error 
 	// Object not existence check in the bucket
 	for _, object := range *bucketMap[bucketName].objects {
 		if object.objectKey == objectName {
-			length := strconv.Itoa(object.contentLength)
-			w.Write([]byte(object.objectKey + " " + length + " " + object.contentType + " " + object.lastModified))
+			objectPath := filepath.Join(storagePath, bucketName, objectName)
+			objectFile, err := os.Open(objectPath)
+			if err != nil {
+				return fmt.Errorf("error while opening <%s> object in <%s> bucket: %w", objectName, bucketName, err)
+			}
+
+			// Set length of response
+			fileInfo, err := objectFile.Stat()
+			if err != nil {
+				return fmt.Errorf("error while getting file info of <%s> object in <%s> bucket: %w", objectName, bucketName, err)
+			}
+			w.Header().Set("Content-Length", strconv.Itoa(int(fileInfo.Size())))
+
+			// Set MimeType of response
+			signatureBuf := make([]byte, 512)
+			n, err := objectFile.Read(signatureBuf)
+			if err != nil && err != io.EOF {
+				return fmt.Errorf("error while reading first 512 bytes from <%s> object: %w", objectName, err)
+			}
+			w.Header().Set("Content-Type", http.DetectContentType(signatureBuf[:n]))
+			w.Write(signatureBuf[:n])
+			signatureBuf = nil
+			buf := make([]byte, 100)
+			for {
+				n, err := objectFile.Read(buf)
+				if err != nil && err != io.EOF {
+					return fmt.Errorf("error while reading <%s> object in <%s> bucket: %w", objectName, bucketName, err)
+				}
+				if n == 0 {
+					break
+				}
+				w.Write(buf)
+			}
+			buf = nil
 			return nil
 		}
 	}
@@ -52,10 +85,14 @@ func uploadObject(r *http.Request, bucketName, objectName string) error {
 		return ErrBucketNotExists
 	}
 
-	// Object not existence check in the bucket
+	// Object existence check in the bucket
 	for _, object := range *bucketMap[bucketName].objects {
 		if object.objectKey == objectName {
-			return ErrObjectAlreadyExists
+			err := deleteObject(bucketName, object.objectKey)
+			if err != nil {
+				return fmt.Errorf("error while deleting existing object: %w", err)
+			}
+			break
 		}
 	}
 
@@ -68,24 +105,42 @@ func uploadObject(r *http.Request, bucketName, objectName string) error {
 		// 1GB restriction
 	} else if contentLength > bytesIn1gb {
 		return ErrTooBigObject
-	} else if contentLength == 0 {
-
 	}
-
-	// read the entire request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return err
+	signatureBuf := make([]byte, 512)
+	n, err := r.Body.Read(signatureBuf)
+	if err != nil && err != io.EOF {
+		return fmt.Errorf("error while reading request body in <%s> object and <%s> bucket: %w", objectName, bucketName, err)
 	}
 	defer r.Body.Close()
 
 	// Detect the MIME type
-	var contentType string
-	if r.Header.Get("Content-Type") != "" {
-		contentType = r.Header.Get("Content-Type")
-	} else {
-		contentType = http.DetectContentType(body)
+	contentType := http.DetectContentType(signatureBuf)
+
+	// Create the file in storage and upload request body into it
+	objectPath := filepath.Join(storagePath, bucketName, objectName)
+	objectFile, err := os.OpenFile(objectPath, os.O_WRONLY|os.O_CREATE, 0o644)
+	if err != nil {
+		return fmt.Errorf("error while creating <%s> object in <%s> bucket: %w", objectName, bucketName, err)
+	} else if contentLength > 0 {
+		// Write the file
+		objectFile.Write(signatureBuf[:n])
+		signatureBuf = nil
+		buf := make([]byte, 100)
+		for {
+			n, err := r.Body.Read(buf)
+			if err != nil && err != io.EOF {
+				return fmt.Errorf("error while reading request body in <%s> object and <%s> bucket: %w", objectName, bucketName, err)
+			} else if n == 0 {
+				break
+			}
+			objectFile.Write(buf[:n])
+
+		}
+		buf = nil
 	}
+	defer objectFile.Close()
+
+	// Read the request body sequentially
 
 	// Append metadata
 	*bucketMap[bucketName].objects = append(*bucketMap[bucketName].objects, bucketObject{
@@ -95,26 +150,79 @@ func uploadObject(r *http.Request, bucketName, objectName string) error {
 		lastModified:  time.Now().Format(time.RFC822),
 	})
 
-	// update csv file
-	metadataPath := filepath.Join(storagePath, bucketName, objectName, "objects.csv")
-	csvFile, err := os.OpenFile(metadataPath, os.O_WRONLY|os.O_APPEND, 0o644)
+	err = saveObjectsData(bucketName, objectName)
 	if err != nil {
-		return err
-	}
-	defer csvFile.Close()
-
-	// write new bucket to csv file
-	csvWriter := csv.NewWriter(csvFile)
-	csvWriter.Write([]string{objectName, strconv.Itoa(int(contentLength)), contentType, time.Now().Format(time.RFC822)})
-	csvWriter.Flush()
-	err = csvWriter.Error()
-	if err != nil {
-		return err
+		return fmt.Errorf("error while saving objects metadata in <%s> bucket: %w", bucketName, err)
 	}
 
 	return nil
 }
 
-func deleteObject(w http.ResponseWriter, r *http.Request, bucketName, objectName string) {
+func deleteObject(bucketName, objectName string) error {
+	// Bucket existence check
+	if _, exists := bucketMap[bucketName]; !exists {
+		return ErrBucketNotExists
+	}
 
+	// Object existence check
+	for idx, object := range *bucketMap[bucketName].objects {
+		if object.objectKey == objectName {
+			// Remove from objects slice
+			*bucketMap[bucketName].objects = append((*bucketMap[bucketName].objects)[:idx], (*bucketMap[bucketName].objects)[idx+1:]...)
+
+			// Remove object from bucket in disk
+			objectPath := filepath.Join(storagePath, bucketName, objectName)
+			err := os.Remove(objectPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					err = nil
+				} else {
+					return fmt.Errorf("error while removing <%s> object in <%s> bucket: %w", objectName, bucketName, err)
+				}
+			}
+
+			// Update metadata in objects.csv file
+			err = saveObjectsData(bucketName, objectName)
+			if err != nil {
+				return fmt.Errorf("error while saving objects metadata in <%s> bucket: %w", bucketName, err)
+			}
+
+			return nil
+		}
+	}
+	return ErrObjectNotExists
+}
+
+func saveObjectsData(bucketName, objectName string) error {
+	bucketMetadataPath := filepath.Join(storagePath, bucketName, "objects.csv")
+	bucketMetadataFile, err := os.Create(bucketMetadataPath)
+	if err != nil {
+		return fmt.Errorf("error while reading <%s> bucket metadata file: %w", bucketName, err)
+	}
+
+	csvWriter := csv.NewWriter(bucketMetadataFile)
+	for _, object := range *bucketMap[bucketName].objects {
+		csvWriter.Write([]string{object.objectKey, strconv.Itoa(object.contentLength), object.contentType, object.lastModified})
+	}
+
+	csvWriter.Flush()
+	err = csvWriter.Error()
+	if err != nil {
+		return fmt.Errorf("error while writing metadata to <%s> file: %w", bucketMetadataPath, err)
+	}
+
+	// Update metadata in buckets.csv file
+	if len(*bucketMap[bucketName].objects) == 0 {
+		bucketMap[bucketName].status = "inactive"
+	} else {
+		bucketMap[bucketName].status = "active"
+	}
+	bucketMap[bucketName].lastModifiedTime = time.Now().Format(time.RFC822)
+	// Sync with disk files
+	err = saveBucketsData()
+	if err != nil {
+		return fmt.Errorf("error while saving buckets in <%s> object and <%s> bucket metadata: %w", objectName, bucketName, err)
+	}
+
+	return nil
 }
