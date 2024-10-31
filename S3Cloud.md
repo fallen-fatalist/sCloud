@@ -21,12 +21,15 @@
 	- [x] Delete an object
 	- [x] Logging
 	- [x] Modified time update
-	- [x] Testing
-- [ ] Change responses format to XML instead of raw text
-- [ ] Help flag
-- [ ] Check correspondence with project requirements
+	- [x] Unit Manual Testing
+- [ ] Finish line
+	- [ ] Change responses format to XML instead of raw text
+	- [ ] Appropriate response headers
+	- [ ] Help flag
+	- [ ] Full manual testing
+	- [ ] Check correspondence with project requirements
 
-#### Backlog
+#### Future backlog
 - [ ] Refactor
 	- [ ] Implement all REST constraints 
 		- [ ] Options for each resource
