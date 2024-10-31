@@ -23,8 +23,8 @@
 	- [x] Modified time update
 	- [x] Unit Manual Testing
 - [ ] Finish line
-	- [ ] Change responses format to XML instead of raw text
-	- [ ] Appropriate response headers
+	- [x] Change responses format to XML instead of raw text
+	- [x] Appropriate response headers
 	- [ ] Help flag
 	- [ ] Full manual testing
 	- [ ] Check correspondence with project requirements
@@ -36,6 +36,7 @@
 		- [ ] Links for each available resource in initial uri
 		- [ ] MVC Pattern
 		... other constraints of REST
+- [ ] Different error response codes, more clear error messages
 - [ ] SOAP constraints (???)
 - [ ] Full testing covering
 - [ ] Authorization

@@ -18,6 +18,7 @@ var (
 	ErrEndWithHyphenDot     = errors.New("object/bucket name cannot end with hyphen or dot")
 	ErrConsecutiveHyphenDot = errors.New("object/bucket name has consecutive hyphens or dots")
 	ErrManySegments         = errors.New("too many segments in URL string, must be less 3")
+	ErrNoSuchResource       = errors.New("the specified resource doesn't exist")
 )
 
 func routes() *http.ServeMux {
@@ -152,7 +153,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		http.Error(w, "Incorrect URL format entered", http.StatusBadRequest)
+		respondError(w, r, http.StatusNotFound, ErrNoSuchResource)
 		return
 	}
 }

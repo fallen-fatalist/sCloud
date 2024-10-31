@@ -18,7 +18,7 @@ import (
 var (
 	ErrIncorrectNumberOfFields = errors.New("incorrect number of fields in csv file")
 	ErrBucketAlreadyExists     = errors.New("such bucket already exists")
-	ErrBucketNotExists         = errors.New("such bucket  does not exist")
+	ErrBucketNotExists         = errors.New("the specified bucket does not exist")
 	ErrBucketContainsDir       = errors.New("bucket contains directory")
 	ErrBucketIsNotEmpty        = errors.New("bucket is not empty")
 )
