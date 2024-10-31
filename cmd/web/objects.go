@@ -213,11 +213,11 @@ func saveObjectsData(bucketName, objectName string) error {
 
 	// Update metadata in buckets.csv file
 	if len(*bucketMap[bucketName].objects) == 0 {
-		bucketMap[bucketName].status = "inactive"
+		bucketMap[bucketName].Status = "inactive"
 	} else {
-		bucketMap[bucketName].status = "active"
+		bucketMap[bucketName].Status = "active"
 	}
-	bucketMap[bucketName].lastModifiedTime = time.Now().Format(time.RFC822)
+	bucketMap[bucketName].LastModifiedTime = time.Now().Format(time.RFC822)
 	// Sync with disk files
 	err = saveBucketsData()
 	if err != nil {
