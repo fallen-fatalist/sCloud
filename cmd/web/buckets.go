@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -26,12 +27,12 @@ var (
 // key string is the name of the bucket
 var bucketMap map[string]*bucketData
 
-// Bucket csv record structure
+// bucketData csv record structure
 type bucketData struct {
-	name             string
-	createdTime      string
-	lastModifiedTime string
-	status           string
+	Name             string `xml:"Name"`
+	CreatedTime      string `xml:"CreationDate"`
+	LastModifiedTime string `xml:"LastModifiedDate"`
+	Status           string `xml:"Status"`
 	objects          *[]bucketObject
 }
 
@@ -133,10 +134,10 @@ func loadBucketsData() error {
 
 		// add bucket to bucket map
 		bucketMap[bucketsRecord[0]] = &bucketData{
-			name:             bucketsRecord[0],
-			createdTime:      bucketsRecord[1],
-			lastModifiedTime: bucketsRecord[2],
-			status:           bucketsRecord[3],
+			Name:             bucketsRecord[0],
+			CreatedTime:      bucketsRecord[1],
+			LastModifiedTime: bucketsRecord[2],
+			Status:           bucketsRecord[3],
 			objects:          &objects,
 		}
 	}
@@ -152,7 +153,7 @@ func saveBucketsData() error {
 
 	csvWriter := csv.NewWriter(bucketsFile)
 	for bucketName, bucketData := range bucketMap {
-		err := csvWriter.Write([]string{bucketName, bucketData.createdTime, bucketData.lastModifiedTime, bucketData.status})
+		err := csvWriter.Write([]string{bucketName, bucketData.CreatedTime, bucketData.LastModifiedTime, bucketData.Status})
 		if err != nil {
 			return fmt.Errorf("error while saving bucket's metadata to buckets.csv file")
 		}
@@ -165,12 +166,25 @@ func saveBucketsData() error {
 	return nil
 }
 
+type bucketsWrapper struct {
+	XMLName xml.Name      `xml:"Buckets"`
+	Buckets []*bucketData `xml:"Bucket"`
+}
+
 // GET handler
-func getBuckets(w http.ResponseWriter) {
-	for bucketName, bucketData := range bucketMap {
-		w.Write([]byte(bucketName + " " + bucketData.createdTime + " " + bucketData.lastModifiedTime + " " + bucketData.status + "\n"))
+func getBuckets(w http.ResponseWriter) error {
+	wrapper := bucketsWrapper{}
+
+	for _, bucket := range bucketMap {
+		wrapper.Buckets = append(wrapper.Buckets, bucket)
 	}
+	marshalledObject, err := xml.MarshalIndent(wrapper, "", "    ")
+	if err != nil {
+		return fmt.Errorf("error while marshaling the buckets: %w", err)
+	}
+	respondSuccessXML(w, marshalledObject)
 	log.Print("Buckets list requested")
+	return nil
 }
 
 // PUT handler
@@ -207,10 +221,10 @@ func createBucket(bucketName string) error {
 
 	// Bucket add to map
 	bucketMap[bucketName] = &bucketData{
-		name:             bucketName,
-		createdTime:      time.Now().Format(time.RFC822),
-		lastModifiedTime: time.Now().Format(time.RFC822),
-		status:           "inactive",
+		Name:             bucketName,
+		CreatedTime:      time.Now().Format(time.RFC822),
+		LastModifiedTime: time.Now().Format(time.RFC822),
+		Status:           "inactive",
 		objects:          &[]bucketObject{},
 	}
 
@@ -223,7 +237,7 @@ func createBucket(bucketName string) error {
 
 	// write new bucket to csv file
 	csvWriter := csv.NewWriter(csvFile)
-	csvWriter.Write([]string{bucketName, bucketMap[bucketName].createdTime, bucketMap[bucketName].lastModifiedTime, bucketMap[bucketName].status})
+	csvWriter.Write([]string{bucketName, bucketMap[bucketName].CreatedTime, bucketMap[bucketName].LastModifiedTime, bucketMap[bucketName].Status})
 	csvWriter.Flush()
 	err = csvWriter.Error()
 	if err != nil {

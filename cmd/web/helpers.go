@@ -12,8 +12,10 @@ const (
 	Declaration = `<?xml version="1.0" encoding="UTF-8"?>` + "\n"
 )
 
-func respondSuccess(w http.ResponseWriter, r *http.Request, statusCode int) {
-	return
+func respondSuccessXML(w http.ResponseWriter, marshalledObject []byte) {
+	w.Header().Set("Content-Type", "application/xml")
+	marshalledObject = append(marshalledObject, '\n')
+	w.Write(append([]byte(Declaration), marshalledObject...))
 }
 
 func respondError(w http.ResponseWriter, r *http.Request, statusCode int, err error) {
