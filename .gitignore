@@ -4,4 +4,5 @@
 scripts/*
 # Metadata
 data/*
-
+# Binary files
+bin
