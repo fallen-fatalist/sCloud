@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -34,6 +35,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 	// Dividing URL into segments
 	URLStringTrimmed := strings.Trim(r.URL.String(), "/")
 	URLSegments := strings.Split(URLStringTrimmed, "/")
+	log.Printf("%s request with URL: %s", r.Method, r.URL.String())
 
 	// Routing
 	switch {
@@ -53,7 +55,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		// URL validation
 		err := validateURLSegments(URLSegments)
 		if err != nil {
-			respondError(http.StatusBadRequest, err, w)
+			respondError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
@@ -61,13 +63,11 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		case http.MethodPut:
 			err := createBucket(URLSegments[0])
 			if err != nil {
-				statusCode := 200
+				statusCode := http.StatusBadRequest
 				if err == ErrBucketAlreadyExists {
 					statusCode = http.StatusConflict
-				} else {
-					statusCode = http.StatusBadRequest
 				}
-				respondError(statusCode, err, w)
+				respondError(w, r, statusCode, err)
 				return
 			}
 			w.Write([]byte("Created the bucket with name: " + URLSegments[0] + "\n"))
@@ -75,16 +75,19 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		case http.MethodDelete:
 			err := deleteBucket(URLSegments[0])
 			if err != nil {
-				statusCode := 200
+				statusCode := http.StatusBadRequest
 				if err == ErrBucketIsNotEmpty {
 					statusCode = http.StatusConflict
 				} else if err == ErrBucketNotExists {
 					statusCode = http.StatusNotFound
 				}
-				respondError(statusCode, err, w)
+				respondError(w, r, statusCode, err)
 				return
+			} else {
+				w.WriteHeader(http.StatusNoContent)
+				w.Write([]byte("Deleted the bucket with name: " + URLSegments[0] + "\n"))
+
 			}
-			w.Write([]byte("Deleted the bucket with name: " + URLSegments[0] + "\n"))
 			return
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -97,7 +100,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		// URL validation
 		err := validateURLSegments(URLSegments)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			respondError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
@@ -107,9 +110,9 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				statusCode := 400
 				if err == ErrObjectNotExists {
-					statusCode = http.StatusBadRequest
+					statusCode = http.StatusNotFound
 				}
-				respondError(statusCode, err, w)
+				respondError(w, r, statusCode, err)
 				return
 
 			}
@@ -121,13 +124,24 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 				if err == ErrObjectAlreadyExists {
 					statusCode = http.StatusConflict
 				}
-				respondError(statusCode, err, w)
+				respondError(w, r, statusCode, err)
 				return
 			}
 			return
 		case http.MethodDelete:
-			deleteObject(w, r, URLSegments[0], URLSegments[1])
-			return
+			err := deleteObject(URLSegments[0], URLSegments[1])
+			if err != nil {
+				statusCode := 400
+				if err == ErrObjectNotExists {
+					statusCode = http.StatusNotFound
+				}
+				respondError(w, r, statusCode, err)
+				return
+			} else {
+				w.WriteHeader(http.StatusNoContent)
+				w.Write([]byte("deleted the object with name: " + URLSegments[1] + " in the bucket " + "<" + URLSegments[0] + ">" + "\n"))
+				return
+			}
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Header().Set("Allow", "GET, PUT, DELETE")

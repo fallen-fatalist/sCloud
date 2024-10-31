@@ -4,8 +4,8 @@ if ! go version; then
     exit 1
 fi
 
-if go build -o bin/S3CLoud cmd/web/*; then 
-    echo "S3Cloud built successfully, binary file located in bin"
+if go build -o S3CLoud cmd/web/*; then 
+    echo "S3Cloud built successfully, binary file located in project directory"
 else
     echo "Error happened while building"
     exit 1
