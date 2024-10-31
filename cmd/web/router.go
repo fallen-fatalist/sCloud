@@ -70,6 +70,9 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 				respondError(w, r, statusCode, err)
 				return
 			}
+			w.Header().Set("Location", "/"+URLSegments[0])
+			w.Header().Set("Content-Length", "0")
+			w.Header().Set("Connection", "close")
 			w.Write([]byte("Created the bucket with name: " + URLSegments[0] + "\n"))
 			return
 		case http.MethodDelete:
