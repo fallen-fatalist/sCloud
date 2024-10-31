@@ -11,7 +11,7 @@ var ()
 
 // Initialization loading buckets
 func init() {
-	err := loadBuckets()
+	err := loadBucketsData()
 	if err != nil {
 		log.Fatal(err)
 	}

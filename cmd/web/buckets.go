@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -15,19 +16,19 @@ import (
 // Errors
 var (
 	ErrIncorrectNumberOfFields = errors.New("incorrect number of fields in csv file")
-	ErrBucketAlreadyExists     = errors.New("bucket with BucketName already exists")
-	ErrBucketNotExists         = errors.New("bucket with BucketName does not exist")
+	ErrBucketAlreadyExists     = errors.New("such bucket already exists")
+	ErrBucketNotExists         = errors.New("such bucket  does not exist")
 	ErrBucketContainsDir       = errors.New("bucket contains directory")
 	ErrBucketIsNotEmpty        = errors.New("bucket is not empty")
 )
 
 // Global variable of buckets list
 // key string is the name of the bucket
-var bucketMap map[string]bucketData
+var bucketMap map[string]*bucketData
 
 // Bucket csv record structure
 type bucketData struct {
-	// name string is included as key in bucketMap
+	name             string
 	createdTime      string
 	lastModifiedTime string
 	status           string
@@ -36,36 +37,39 @@ type bucketData struct {
 
 // Load buckets from data path if exist
 // if doesn't exist, creates new buckets.csv
-func loadBuckets() error {
+func loadBucketsData() error {
 	// Create storage directory if not exists
 	err := os.Mkdir(storagePath, 0o755)
-	if err != nil && !os.IsExist(err) {
-		return err
-	} else if err == nil {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("error while creating storage directory: %w", err)
+		}
+	} else {
 		log.Print("created storage directory: " + storagePath)
 	}
 
 	// Opening buckets.csv metadata file
-	bucketsFile, err := os.OpenFile(bucketsPath, os.O_RDONLY, 0o644)
+	bucketsFile, err := os.OpenFile(bucketsMetadataPath, os.O_RDONLY, 0o644)
 	if err != nil {
 		if os.IsNotExist(err) {
-			_, err := os.OpenFile(bucketsPath, os.O_CREATE, 0o644)
+			_, err := os.OpenFile(bucketsMetadataPath, os.O_CREATE, 0o644)
 			if err != nil {
 				log.Fatal(err)
+			} else {
+				log.Print("created buckets.csv metadata file")
+				return nil
 			}
-			log.Print("created buckets.csv metadata file")
-			return nil
 		}
-		return err
+		return fmt.Errorf("error while opening bucket metadata file: %w", err)
 	}
-
 	defer bucketsFile.Close()
+
 	// Validation must be in router, so here it is skipped
 	// so here bucketName is not validated
 
 	// Initialize Buckets map
 	if bucketMap == nil {
-		bucketMap = make(map[string]bucketData)
+		bucketMap = make(map[string]*bucketData)
 	}
 
 	// Parsing buckets.csv file
@@ -73,70 +77,91 @@ func loadBuckets() error {
 
 	// Iterate over csv records
 	for {
-		record, err := bucketsCsvReader.Read()
+		bucketsRecord, err := bucketsCsvReader.Read()
 		if err != nil {
 			if err == io.EOF {
 				log.Print("loaded buckets metadata")
-				break
+				return nil
 			}
-			return err
+			return fmt.Errorf("error while reading buckets' metadata: %w", err)
 			// csv record length validation
-		} else if len(record) != 4 {
+		} else if len(bucketsRecord) != 4 {
 			return ErrIncorrectNumberOfFields
 			// duplication detection
-		} else if _, exists := bucketMap[record[0]]; exists {
+		} else if _, exists := bucketMap[bucketsRecord[0]]; exists {
 			return ErrBucketAlreadyExists
 		}
 
-		// read objects inside bucket
-		bucketPath := filepath.Join(bucketsPath, record[0])
-		bucketDir, err := os.ReadDir(bucketPath)
+		// Object's metadata reading
+		objects := []bucketObject{}
+		bucketPath := filepath.Join(storagePath, bucketsRecord[0])
+		objectMetaDataPath := filepath.Join(bucketPath, "objects.csv")
+		objectMetaDataFile, err := os.OpenFile(objectMetaDataPath, os.O_RDONLY, 0o644)
 		if err != nil {
 			if os.IsNotExist(err) {
-				_, err = os.Create(bucketPath)
+				_, err = os.OpenFile(objectMetaDataPath, os.O_CREATE, 0o644)
 				if err != nil {
-					return err
+					return fmt.Errorf("error while reading the <%s> bucket and creating its metadata file: %w", bucketsRecord[0], err)
 				}
-			} else {
-				return err
+				continue
 			}
+			return fmt.Errorf("error while reading <%s> object metadata file: %w", bucketsRecord[0], err)
 		}
-
-		objects := []bucketObject{}
-		for _, objectEntry := range bucketDir {
-			objectPath := filepath.Join(bucketPath, objectEntry.Name())
-			objectFile, err := os.Open(objectPath)
+		bucketCsvReader := csv.NewReader(objectMetaDataFile)
+		for {
+			bucketRecord, err := bucketCsvReader.Read()
 			if err != nil {
-				return err
-			}
-			bucketCsvReader := csv.NewReader(objectFile)
-
-			record, err := bucketCsvReader.Read()
-			if err != nil {
-				return err
+				if err == io.EOF {
+					break
+				} else {
+					return fmt.Errorf("error while reading <%s> bucket's metadata file: %w", bucketsRecord[0], err)
+				}
 			}
 
-			length, err := strconv.Atoi(record[1])
+			length, err := strconv.Atoi(bucketRecord[1])
 			if err != nil {
-				return err
+				return fmt.Errorf("error while converting <%s> object length to integer: %w", bucketRecord[0], err)
 			}
 			objects = append(objects, bucketObject{
-				objectKey:     record[0],
+				objectKey:     bucketRecord[0],
 				contentLength: length,
-				contentType:   record[2],
-				lastModified:  record[3],
+				contentType:   bucketRecord[2],
+				lastModified:  bucketRecord[3],
 			})
-
 		}
+		objectMetaDataFile.Close()
 
 		// add bucket to bucket map
-		bucketMap[record[0]] = bucketData{
-			createdTime:      record[1],
-			lastModifiedTime: record[2],
-			status:           record[3],
+		bucketMap[bucketsRecord[0]] = &bucketData{
+			name:             bucketsRecord[0],
+			createdTime:      bucketsRecord[1],
+			lastModifiedTime: bucketsRecord[2],
+			status:           bucketsRecord[3],
 			objects:          &objects,
 		}
 	}
+}
+
+func saveBucketsData() error {
+	// Opening buckets.csv metadata file
+	bucketsFile, err := os.Create(bucketsMetadataPath)
+	if err != nil {
+		return fmt.Errorf("error while opening bucket metadata file: %w", err)
+	}
+	defer bucketsFile.Close()
+
+	csvWriter := csv.NewWriter(bucketsFile)
+	for bucketName, bucketData := range bucketMap {
+		err := csvWriter.Write([]string{bucketName, bucketData.createdTime, bucketData.lastModifiedTime, bucketData.status})
+		if err != nil {
+			return fmt.Errorf("error while saving bucket's metadata to buckets.csv file")
+		}
+	}
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		return fmt.Errorf("error while saving bucket's metadata to buckets.csv file: %w", err)
+	}
+
 	return nil
 }
 
@@ -163,7 +188,7 @@ func createBucket(bucketName string) error {
 		} else {
 			log.Fatal(err)
 		}
-	} else if err != nil {
+	} else {
 		log.Print("bucket directory created: " + filepath.Join(storagePath, bucketName))
 	}
 
@@ -176,20 +201,21 @@ func createBucket(bucketName string) error {
 		} else {
 			log.Fatal(err)
 		}
-	} else if err == nil {
+	} else {
 		log.Print("bucket metadata file created: " + objectsMetadataPath)
 	}
 
 	// Bucket add to map
-	bucketMap[bucketName] = bucketData{
+	bucketMap[bucketName] = &bucketData{
+		name:             bucketName,
 		createdTime:      time.Now().Format(time.RFC822),
 		lastModifiedTime: time.Now().Format(time.RFC822),
-		status:           "active",
+		status:           "inactive",
 		objects:          &[]bucketObject{},
 	}
 
 	// write to csv file
-	csvFile, err := os.OpenFile(bucketsPath, os.O_WRONLY|os.O_APPEND, 0o644)
+	csvFile, err := os.OpenFile(bucketsMetadataPath, os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return err
 	}
@@ -214,22 +240,29 @@ func deleteBucket(bucketName string) (err error) {
 		return ErrBucketNotExists
 	}
 
-	// Remove the bucket's metadata
-	bucketMetadataPath := filepath.Join(storagePath, bucketName, "objects.csv")
-	err = os.Remove(bucketMetadataPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = nil
-		} else {
-			return err
-		}
-	}
-
 	// Remove the bucket's directory
 	bucketPath := filepath.Join(storagePath, bucketName)
-	bucketDir, _ := os.ReadDir(bucketPath)
-	if len(bucketDir) == 0 {
-		err = os.Remove(bucketPath)
+	bucketDir, err := os.ReadDir(bucketPath)
+	if err != nil {
+		return fmt.Errorf("error while reading the <%s>  directory: %w", bucketPath, err)
+	}
+	if len(bucketDir) <= 1 {
+		if len(bucketDir) == 1 {
+			if bucketDir[0].Name() == "objects.csv" {
+				// Remove the bucket's metadata
+				bucketMetadataPath := filepath.Join(storagePath, bucketName, "objects.csv")
+				err = os.Remove(bucketMetadataPath)
+				if err != nil {
+					return fmt.Errorf("error while deleting metadata file in <%s> bucket: %w", bucketName, err)
+				}
+				err = os.Remove(bucketPath)
+				if err != nil {
+					return fmt.Errorf("error while removing <%s> bucket directory: %w", bucketName, err)
+				}
+			} else {
+				return ErrBucketIsNotEmpty
+			}
+		}
 	} else {
 		return ErrBucketIsNotEmpty
 	}
@@ -241,25 +274,25 @@ func deleteBucket(bucketName string) (err error) {
 		}
 	}
 
+	// Remove the bucket's metadata
+	bucketMetadataPath := filepath.Join(storagePath, bucketName, "objects.csv")
+	err = os.Remove(bucketMetadataPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = nil
+		} else {
+			return err
+		}
+	}
+
 	// Delete the bucket from the map
 	delete(bucketMap, bucketName)
 
-	// Overwrite the map to the csv file
-	csvFile, err := os.Create(bucketsPath)
+	err = saveBucketsData()
 	if err != nil {
-		return err
+		return fmt.Errorf("error while saving buckets metadata: %w", err)
 	}
 
-	// Write to the new file
-	csvWriter := csv.NewWriter(csvFile)
-	for bucketName, bucketData := range bucketMap {
-		csvWriter.Write([]string{bucketName, bucketData.createdTime, bucketData.lastModifiedTime, bucketData.status})
-	}
-	csvWriter.Flush()
-	err = csvWriter.Error()
-	if err != nil {
-		return err
-	}
 	log.Print("<" + bucketName + "> bucket deleted")
 	return nil
 }
