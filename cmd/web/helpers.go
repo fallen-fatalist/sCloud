@@ -29,8 +29,8 @@ type errorWrapper struct {
 func respondError(w http.ResponseWriter, r *http.Request, statusCode int, err error) {
 	message, code := mapErrorToMessageAndCode(err)
 	xmlError := errorWrapper{
-		Message:  code,
-		Code:     message,
+		Message:  message,
+		Code:     code,
 		Resource: r.URL.String(),
 	}
 	marshalledError, innerErr := xml.MarshalIndent(xmlError, "", "    ")
@@ -52,14 +52,8 @@ const (
 	ResourceIdentifierIncorrect = "The resource identifier you requested is incorrect"
 	ErrEntityTooLarge           = "Your proposed upload exceeds the maximum allowed object size"
 	RequestIncompleteBody       = "You did not provide the number of bytes specified by the Content-Length HTTP header"
-	ErrInvalidArgument          = `This error might occur for the following reasons resource identifier contain: 
-	1) valid IP address
-	2) upper case letters 
-	3) consecutive dots or hyphens
-	3) begin with dot or hyphen
-	4) contain more than 2 segments
-	5) too long or too short name`
-	ErrNoSuchKey = "The specified key does not exist"
+	ErrInvalidArgument          = "The resource identifier is incorrect"
+	ErrNoSuchKey                = "The specified key does not exist"
 )
 
 // Error codes
@@ -72,6 +66,9 @@ const (
 	BucketAlreadyExists      = "BucketAlreadyExists"
 	NoSuchBucket             = "NoSuchBucket"
 	NoSuchKey                = "NoSuchKey"
+	MethodNotAllowed         = "MethodNotAllowed"
+	BadRequest               = "BadReqest"
+	ExistingKey              = "ExistingKey"
 )
 
 // Map certain error to general message message, code is more certain
@@ -82,8 +79,10 @@ func mapErrorToMessageAndCode(err error) (message string, code string) {
 		message, code = ErrBucketNotExists.Error(), NoSuchBucket
 	case ErrBucketAlreadyExists:
 		message, code = ErrBucketAlreadyExists.Error(), BucketAlreadyExists
-	case ErrObjectAlreadyExists:
+	case ErrObjectNotExists:
 		message, code = ErrNoSuchKey, NoSuchKey
+	case ErrObjectAlreadyExists:
+		message, code = ErrObjectAlreadyExists.Error(), ExistingKey
 	case ErrConsecutiveHyphenDot, ErrInvalidCharacters, ErrManySegments, ErrStartWithHyphen, ErrTooLongName, ErrTooShortName, ErrValidIPAddress, ErrEndWithHyphenDot:
 		message, code = ErrInvalidArgument, InvalidArgument
 	case ErrTooBigObject:
@@ -92,8 +91,10 @@ func mapErrorToMessageAndCode(err error) (message string, code string) {
 		message, code = RequestIncompleteBody, IncompleteBody
 	case ErrNoSuchResource:
 		message, code = ErrNoSuchResource.Error(), NoSuchResource
+	case ErrMethodNotAllowed:
+		message, code = ErrMethodNotAllowed.Error(), MethodNotAllowed
 	default:
-		message, code = err.Error(), ""
+		message, code = err.Error(), BadRequest
 	}
 
 	return

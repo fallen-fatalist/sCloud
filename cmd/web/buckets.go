@@ -21,6 +21,7 @@ var (
 	ErrBucketNotExists         = errors.New("the specified bucket does not exist")
 	ErrBucketContainsDir       = errors.New("bucket contains directory")
 	ErrBucketIsNotEmpty        = errors.New("bucket is not empty")
+	ErrMethodNotAllowed        = errors.New("the specified method is not allowed against this resource")
 )
 
 // Global variable of buckets list

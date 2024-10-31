@@ -47,8 +47,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			w.Header().Set("Allow", "GET")
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			w.Write([]byte("Incorrect method applied for listing buckets\n"))
+			respondError(w, r, http.StatusMethodNotAllowed, ErrMethodNotAllowed)
 			return
 		}
 	// /<BucketName> route processing
@@ -96,7 +95,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Header().Set("Allow", "PUT, DELETE")
-			w.Write([]byte("Incorrect method entered to operate with buckets\n"))
+			respondError(w, r, http.StatusMethodNotAllowed, ErrMethodNotAllowed)
 			return
 		}
 	// /<BucketName>/<ObjectName> route
