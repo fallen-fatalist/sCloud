@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/fallen-fatalist/S3Cloud/cmd/web"
 )
@@ -15,6 +16,10 @@ func main() {
 		if err == web.ErrHelpCalled {
 			return
 		}
+	}
+	if web.Port == 0 {
+		log.Print("0 port prohibited")
+		os.Exit(1)
 	}
 
 	mux := web.Routes()
