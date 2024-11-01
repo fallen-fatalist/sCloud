@@ -102,6 +102,10 @@ func createBucket(bucketName string) error {
 	}
 
 	// Bucket add to map
+	if len(bucketMap) == 0 {
+		bucketMap = make(map[string]*bucketData)
+	}
+
 	bucketMap[bucketName] = &bucketData{
 		Name:             bucketName,
 		CreatedTime:      time.Now().Format(time.RFC822),

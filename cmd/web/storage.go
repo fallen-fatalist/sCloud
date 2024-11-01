@@ -20,7 +20,7 @@ func Init() error {
 		return err
 	}
 	// Initialize Buckets map
-	if bucketMap == nil {
+	if len(bucketMap) == 0 {
 		bucketMap = make(map[string]*bucketData)
 	}
 
