@@ -51,7 +51,7 @@ func loadBucketsData() error {
 	}
 
 	// Opening buckets.csv metadata file
-	bucketsMetadataPath := filepath.Join(storagePath, "objects.csv")
+	bucketsMetadataPath := filepath.Join(storagePath, "buckets.csv")
 	bucketsFile, err := os.OpenFile(bucketsMetadataPath, os.O_RDONLY, 0o644)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -69,11 +69,6 @@ func loadBucketsData() error {
 
 	// Validation must be in router, so here it is skipped
 	// so here bucketName is not validated
-
-	// Initialize Buckets map
-	if bucketMap == nil {
-		bucketMap = make(map[string]*bucketData)
-	}
 
 	// Parsing buckets.csv file
 	bucketsCsvReader := csv.NewReader(bucketsFile)
@@ -147,7 +142,7 @@ func loadBucketsData() error {
 
 func saveBucketsData() error {
 	// Opening buckets.csv metadata file
-	bucketsMetadataPath := filepath.Join(storagePath, "objects.csv")
+	bucketsMetadataPath := filepath.Join(storagePath, "buckets.csv")
 	bucketsFile, err := os.Create(bucketsMetadataPath)
 	if err != nil {
 		return fmt.Errorf("error while opening bucket metadata file: %w", err)
@@ -232,7 +227,7 @@ func createBucket(bucketName string) error {
 	}
 
 	// write to csv file
-	bucketsMetadataPath := filepath.Join(storagePath, "objects.csv")
+	bucketsMetadataPath := filepath.Join(storagePath, "buckets.csv")
 	csvFile, err := os.OpenFile(bucketsMetadataPath, os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return err

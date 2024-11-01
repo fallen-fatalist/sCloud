@@ -16,6 +16,10 @@ func init() {
 			os.Exit(0)
 		}
 	}
+	// Initialize Buckets map
+	if bucketMap == nil {
+		bucketMap = make(map[string]*bucketData)
+	}
 
 	// create
 	err = loadBucketsData()

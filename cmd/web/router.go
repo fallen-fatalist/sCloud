@@ -129,6 +129,8 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 				respondError(w, r, statusCode, err)
 				return
 			}
+			w.Header().Set("Content-Length", "0")
+			w.Header().Set("Connection", "close")
 			return
 		case http.MethodDelete:
 			err := deleteObject(URLSegments[0], URLSegments[1])
@@ -140,8 +142,9 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 				respondError(w, r, statusCode, err)
 				return
 			} else {
+				w.Header().Set("Content-Length", "0")
+				w.Header().Set("Connection", "close")
 				w.WriteHeader(http.StatusNoContent)
-				w.Write([]byte("deleted the object with name: " + URLSegments[1] + " in the bucket " + "<" + URLSegments[0] + ">" + "\n"))
 				return
 			}
 		default:
