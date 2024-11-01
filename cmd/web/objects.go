@@ -59,7 +59,8 @@ func retrieveObject(w http.ResponseWriter, bucketName, objectName string) error 
 				return fmt.Errorf("error while reading first 512 bytes from <%s> object: %w", objectName, err)
 			}
 			w.Header().Set("Content-Type", http.DetectContentType(signatureBuf[:n]))
-			w.Write(signatureBuf[:n])
+			objectFile.Seek(0, 0)
+
 			signatureBuf = nil
 			buf := make([]byte, 100)
 			for {
@@ -70,7 +71,7 @@ func retrieveObject(w http.ResponseWriter, bucketName, objectName string) error 
 				if n == 0 {
 					break
 				}
-				w.Write(buf)
+				w.Write(buf[:n])
 			}
 			buf = nil
 			return nil
