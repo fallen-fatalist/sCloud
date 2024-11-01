@@ -13,25 +13,22 @@ import (
 )
 
 // Initialization loading buckets
-func Init() {
+func Init() error {
 	// Parse flags
 	err := Parse(os.Args[1:])
 	if err != nil {
-		if err == ErrHelpCalled {
-			os.Exit(0)
-		}
+		return err
 	}
 	// Initialize Buckets map
 	if bucketMap == nil {
 		bucketMap = make(map[string]*bucketData)
 	}
-	// Not standard
 
-	// create
 	err = loadBucketsData()
 	if err != nil {
 		log.Fatal(err)
 	}
+	return nil
 }
 
 // Load buckets from data path if exist
