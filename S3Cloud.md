@@ -31,6 +31,7 @@
 
 #### Future backlog
 - [ ] Refactor
+	- [ ] csv headers line add and its appropriate handling
 	- [ ] Implement all REST constraints 
 		- [ ] Options for each resource
 		- [ ] Links for each available resource in initial uri

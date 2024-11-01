@@ -1,7 +1,6 @@
-package main
+package web
 
 import (
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +17,7 @@ var (
 	ErrObjectAlreadyExists    = errors.New("object already exists")
 	ErrUndefinedContentLength = errors.New("object's size is undefined")
 	ErrTooBigObject           = errors.New("object's size is too big")
+	ErrProhibitedObjectName   = errors.New("object's name is prohibited")
 )
 
 // Number of bytes in 1gb
@@ -59,7 +59,8 @@ func retrieveObject(w http.ResponseWriter, bucketName, objectName string) error 
 				return fmt.Errorf("error while reading first 512 bytes from <%s> object: %w", objectName, err)
 			}
 			w.Header().Set("Content-Type", http.DetectContentType(signatureBuf[:n]))
-			w.Write(signatureBuf[:n])
+			objectFile.Seek(0, 0)
+
 			signatureBuf = nil
 			buf := make([]byte, 100)
 			for {
@@ -70,7 +71,7 @@ func retrieveObject(w http.ResponseWriter, bucketName, objectName string) error 
 				if n == 0 {
 					break
 				}
-				w.Write(buf)
+				w.Write(buf[:n])
 			}
 			buf = nil
 			return nil
@@ -79,7 +80,18 @@ func retrieveObject(w http.ResponseWriter, bucketName, objectName string) error 
 	return ErrObjectNotExists
 }
 
+var prohibitedObjectNames = []string{
+	"objects.csv",
+}
+
 func uploadObject(r *http.Request, bucketName, objectName string) error {
+	// Names validation
+	for _, prohibitedName := range prohibitedObjectNames {
+		if prohibitedName == objectName {
+			return ErrProhibitedObjectName
+		}
+	}
+
 	// Bucket existence check
 	if _, exists := bucketMap[bucketName]; !exists {
 		return ErrBucketNotExists
@@ -191,38 +203,4 @@ func deleteObject(bucketName, objectName string) error {
 		}
 	}
 	return ErrObjectNotExists
-}
-
-func saveObjectsData(bucketName, objectName string) error {
-	bucketMetadataPath := filepath.Join(storagePath, bucketName, "objects.csv")
-	bucketMetadataFile, err := os.Create(bucketMetadataPath)
-	if err != nil {
-		return fmt.Errorf("error while reading <%s> bucket metadata file: %w", bucketName, err)
-	}
-
-	csvWriter := csv.NewWriter(bucketMetadataFile)
-	for _, object := range *bucketMap[bucketName].objects {
-		csvWriter.Write([]string{object.objectKey, strconv.Itoa(object.contentLength), object.contentType, object.lastModified})
-	}
-
-	csvWriter.Flush()
-	err = csvWriter.Error()
-	if err != nil {
-		return fmt.Errorf("error while writing metadata to <%s> file: %w", bucketMetadataPath, err)
-	}
-
-	// Update metadata in buckets.csv file
-	if len(*bucketMap[bucketName].objects) == 0 {
-		bucketMap[bucketName].Status = "inactive"
-	} else {
-		bucketMap[bucketName].Status = "active"
-	}
-	bucketMap[bucketName].LastModifiedTime = time.Now().Format(time.RFC822)
-	// Sync with disk files
-	err = saveBucketsData()
-	if err != nil {
-		return fmt.Errorf("error while saving buckets in <%s> object and <%s> bucket metadata: %w", objectName, bucketName, err)
-	}
-
-	return nil
 }

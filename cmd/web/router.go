@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"errors"
@@ -19,9 +19,10 @@ var (
 	ErrConsecutiveHyphenDot = errors.New("object/bucket name has consecutive hyphens or dots")
 	ErrManySegments         = errors.New("too many segments in URL string, must be less 3")
 	ErrNoSuchResource       = errors.New("the specified resource doesn't exist")
+	ErrMethodNotAllowed     = errors.New("the specified method is not allowed against this resource")
 )
 
-func routes() *http.ServeMux {
+func Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	// routerHandler handles all routes
 	mux.HandleFunc("/", routerHandler)
@@ -87,13 +88,13 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 				respondError(w, r, statusCode, err)
 				return
 			} else {
+				w.Header().Set("Content-Length", "0")
+				w.Header().Set("Connection", "close")
 				w.WriteHeader(http.StatusNoContent)
-				w.Write([]byte("Deleted the bucket with name: " + URLSegments[0] + "\n"))
 
 			}
 			return
 		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Header().Set("Allow", "PUT, DELETE")
 			respondError(w, r, http.StatusMethodNotAllowed, ErrMethodNotAllowed)
 			return
@@ -130,19 +131,22 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 				respondError(w, r, statusCode, err)
 				return
 			}
+			w.Header().Set("Content-Length", "0")
+			w.Header().Set("Connection", "close")
 			return
 		case http.MethodDelete:
 			err := deleteObject(URLSegments[0], URLSegments[1])
 			if err != nil {
 				statusCode := 400
-				if err == ErrObjectNotExists {
+				if err == ErrObjectNotExists || err == ErrBucketNotExists {
 					statusCode = http.StatusNotFound
 				}
 				respondError(w, r, statusCode, err)
 				return
 			} else {
+				w.Header().Set("Content-Length", "0")
+				w.Header().Set("Connection", "close")
 				w.WriteHeader(http.StatusNoContent)
-				w.Write([]byte("deleted the object with name: " + URLSegments[1] + " in the bucket " + "<" + URLSegments[0] + ">" + "\n"))
 				return
 			}
 		default:
