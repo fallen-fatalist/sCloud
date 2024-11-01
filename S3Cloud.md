@@ -15,19 +15,19 @@
 	- [x] Logging
 	- [x] Bucket status handling
 	- [x] Modified time update
-- [ ] Objects handling
+- [x] Objects handling
 	- [x] Upload a new object
 	- [x] Retrieve an object
 	- [x] Delete an object
 	- [x] Logging
 	- [x] Modified time update
 	- [x] Unit Manual Testing
-- [ ] Finish line
+- [x] Finish line
 	- [x] Change responses format to XML instead of raw text
 	- [x] Appropriate response headers
-	- [ ] Help flag
-	- [ ] Full manual testing
-	- [ ] Check correspondence with project requirements
+	- [x] Help flag
+	- [x] Full manual testing (SKIPPED THE TRAVERSE DIRECTORY VULNERABILITY)
+	- [x] Check correspondence with project requirements
 
 #### Future backlog
 - [ ] Refactor
