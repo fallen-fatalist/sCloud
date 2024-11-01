@@ -92,7 +92,7 @@ func mapErrorToMessageAndCode(err error) (message string, code string) {
 		ErrValidIPAddress,
 		ErrEndWithHyphenDot:
 
-		message, code = ErrInvalidArgument, InvalidArgument
+		message, code = err.Error(), InvalidArgument
 	case ErrTooBigObject:
 		message, code = ErrEntityTooLarge, MaxMessageLengthExceeded
 	case ErrUndefinedContentLength:
