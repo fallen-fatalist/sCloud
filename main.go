@@ -16,6 +16,7 @@ func main() {
 		if err == web.ErrHelpCalled {
 			return
 		}
+		log.Fatalf("error while initialization application: %s", err)
 	}
 	if web.Port == 0 {
 		log.Print("0 port prohibited")
