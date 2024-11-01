@@ -16,12 +16,12 @@ import (
 
 // Errors
 var (
-	ErrIncorrectNumberOfFields = errors.New("incorrect number of fields in csv file")
-	ErrBucketAlreadyExists     = errors.New("such bucket already exists")
-	ErrBucketNotExists         = errors.New("the specified bucket does not exist")
-	ErrBucketContainsDir       = errors.New("bucket contains directory")
-	ErrBucketIsNotEmpty        = errors.New("bucket is not empty")
-	ErrMethodNotAllowed        = errors.New("the specified method is not allowed against this resource")
+	ErrInvalidNumberOfFields = errors.New("incorrect number of fields in csv file")
+	ErrBucketAlreadyExists   = errors.New("such bucket already exists")
+	ErrBucketNotExists       = errors.New("the specified bucket does not exist")
+	ErrBucketContainsDir     = errors.New("bucket contains directory")
+	ErrBucketIsNotEmpty      = errors.New("bucket is not empty")
+	ErrMethodNotAllowed      = errors.New("the specified method is not allowed against this resource")
 )
 
 // Global variable of buckets list
@@ -51,6 +51,7 @@ func loadBucketsData() error {
 	}
 
 	// Opening buckets.csv metadata file
+	bucketsMetadataPath := filepath.Join(storagePath, "objects.csv")
 	bucketsFile, err := os.OpenFile(bucketsMetadataPath, os.O_RDONLY, 0o644)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -88,7 +89,7 @@ func loadBucketsData() error {
 			return fmt.Errorf("error while reading buckets' metadata: %w", err)
 			// csv record length validation
 		} else if len(bucketsRecord) != 4 {
-			return ErrIncorrectNumberOfFields
+			return ErrInvalidNumberOfFields
 			// duplication detection
 		} else if _, exists := bucketMap[bucketsRecord[0]]; exists {
 			return ErrBucketAlreadyExists
@@ -146,6 +147,7 @@ func loadBucketsData() error {
 
 func saveBucketsData() error {
 	// Opening buckets.csv metadata file
+	bucketsMetadataPath := filepath.Join(storagePath, "objects.csv")
 	bucketsFile, err := os.Create(bucketsMetadataPath)
 	if err != nil {
 		return fmt.Errorf("error while opening bucket metadata file: %w", err)
@@ -230,6 +232,7 @@ func createBucket(bucketName string) error {
 	}
 
 	// write to csv file
+	bucketsMetadataPath := filepath.Join(storagePath, "objects.csv")
 	csvFile, err := os.OpenFile(bucketsMetadataPath, os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return err
