@@ -93,7 +93,6 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Header().Set("Allow", "PUT, DELETE")
 			respondError(w, r, http.StatusMethodNotAllowed, ErrMethodNotAllowed)
 			return
