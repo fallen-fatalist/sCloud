@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"errors"
@@ -15,7 +15,7 @@ var (
 
 // Flags list
 var (
-	port        = 4000
+	Port        = 4000
 	storagePath = "data"
 )
 
@@ -35,7 +35,7 @@ func Parse(args []string) (err error) {
 		flagName, flagValue := args[flagIdx], args[flagIdx+1]
 		switch strings.TrimPrefix(flagName, "--") {
 		case "port":
-			port, err = strconv.Atoi(flagValue)
+			Port, err = strconv.Atoi(flagValue)
 			if err != nil {
 				return fmt.Errorf("error while parsing the port: %w", err)
 			}

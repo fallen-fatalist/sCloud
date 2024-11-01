@@ -25,7 +25,7 @@
 - [ ] Finish line
 	- [x] Change responses format to XML instead of raw text
 	- [x] Appropriate response headers
-	- [ ] Help flag
+	- [x] Flag parsing
 	- [ ] Full manual testing
 	- [ ] Check correspondence with project requirements
 

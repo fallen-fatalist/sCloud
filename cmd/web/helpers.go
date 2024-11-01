@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"encoding/xml"
@@ -83,7 +83,15 @@ func mapErrorToMessageAndCode(err error) (message string, code string) {
 		message, code = ErrNoSuchKey, NoSuchKey
 	case ErrObjectAlreadyExists:
 		message, code = ErrObjectAlreadyExists.Error(), ExistingKey
-	case ErrConsecutiveHyphenDot, ErrInvalidCharacters, ErrManySegments, ErrStartWithHyphen, ErrTooLongName, ErrTooShortName, ErrValidIPAddress, ErrEndWithHyphenDot:
+	case ErrConsecutiveHyphenDot,
+		ErrInvalidCharacters,
+		ErrManySegments,
+		ErrStartWithHyphen,
+		ErrTooLongName,
+		ErrTooShortName,
+		ErrValidIPAddress,
+		ErrEndWithHyphenDot:
+
 		message, code = ErrInvalidArgument, InvalidArgument
 	case ErrTooBigObject:
 		message, code = ErrEntityTooLarge, MaxMessageLengthExceeded

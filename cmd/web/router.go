@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"errors"
@@ -19,9 +19,10 @@ var (
 	ErrConsecutiveHyphenDot = errors.New("object/bucket name has consecutive hyphens or dots")
 	ErrManySegments         = errors.New("too many segments in URL string, must be less 3")
 	ErrNoSuchResource       = errors.New("the specified resource doesn't exist")
+	ErrMethodNotAllowed     = errors.New("the specified method is not allowed against this resource")
 )
 
-func routes() *http.ServeMux {
+func Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	// routerHandler handles all routes
 	mux.HandleFunc("/", routerHandler)
