@@ -88,8 +88,9 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 				respondError(w, r, statusCode, err)
 				return
 			} else {
+				w.Header().Set("Content-Length", "0")
+				w.Header().Set("Connection", "close")
 				w.WriteHeader(http.StatusNoContent)
-				w.Write([]byte("Deleted the bucket with name: " + URLSegments[0] + "\n"))
 
 			}
 			return
@@ -137,7 +138,7 @@ func routerHandler(w http.ResponseWriter, r *http.Request) {
 			err := deleteObject(URLSegments[0], URLSegments[1])
 			if err != nil {
 				statusCode := 400
-				if err == ErrObjectNotExists {
+				if err == ErrObjectNotExists || err == ErrBucketNotExists {
 					statusCode = http.StatusNotFound
 				}
 				respondError(w, r, statusCode, err)
