@@ -30,6 +30,8 @@
 	- [x] Check correspondence with project requirements
 
 #### Future backlog
+- [ ] Path traversal vulnerability
+- [ ] Bucket get endpoint
 - [ ] Refactor
 	- [ ] csv headers line add and its appropriate handling
 	- [ ] Implement all REST constraints 
