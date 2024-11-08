@@ -31,6 +31,7 @@
 
 #### Future backlog
 - [ ] Path traversal vulnerability
+- [ ] Incorrect flag handling
 - [ ] Bucket get endpoint
 - [ ] Refactor
 	- [ ] csv headers line add and its appropriate handling
