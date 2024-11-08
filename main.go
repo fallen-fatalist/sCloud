@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fallen-fatalist/S3Cloud/cmd/web"
+	"github.com/fallen-fatalist/triple-s/cmd/web"
 )
 
 func main() {
